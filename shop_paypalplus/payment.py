@@ -5,7 +5,6 @@ import paypalrestsdk
 import warnings
 from django.conf import settings
 from django.conf.urls import patterns, url
-from django.core.cache import cache
 from django.core.serializers.json import DjangoJSONEncoder
 from django.core.urlresolvers import resolve, reverse
 from django.core.exceptions import ImproperlyConfigured
@@ -18,12 +17,11 @@ from shop.payment.base import PaymentProvider
 from django_fsm import transition
 
 
-class PayPalPlusPayment(PaymentProvider):
+class PayPalPayment(PaymentProvider):
     """
-    Provides a payment service for PayPalPlus.
+    Provides a payment service for PayPal.
     """
-    namespace = 'paypalplus-payment'
-    cache_key = 'paypal-auth_token'
+    namespace = 'paypal-payment'
 
     def get_urls(self):
         urlpatterns = patterns('',
@@ -34,18 +32,11 @@ class PayPalPlusPayment(PaymentProvider):
 
     @classmethod
     def get_auth_token(cls):
-        auth_token_hash = cache.get(cls.cache_key)
-        if auth_token_hash is None:
-            api = paypalrestsdk.set_config(
-                mode=settings.SHOP_PAYPALPLUS['MODE'],
-                client_id=settings.SHOP_PAYPALPLUS['CLIENT_ID'],
-                client_secret=settings.SHOP_PAYPALPLUS['CLIENT_SECRET'])
-            auth_token_hash = api.get_token_hash()
-            expires_in = auth_token_hash.pop('expires_in') - 30
-            cache.set(cls.cache_key, auth_token_hash, expires_in)
-        else:
-            paypalrestsdk.set_config(auth_token_hash)
-        print auth_token_hash
+        api = paypalrestsdk.set_config(
+            mode=settings.SHOP_PAYPAL['MODE'],
+            client_id=settings.SHOP_PAYPAL['CLIENT_ID'],
+            client_secret=settings.SHOP_PAYPAL['CLIENT_SECRET'])
+        auth_token_hash = api.get_token_hash()
         return auth_token_hash
 
     def get_payment_request(self, cart, request):
@@ -59,7 +50,7 @@ class PayPalPlusPayment(PaymentProvider):
         cart.update(request)  # to calculate the total
         auth_token_hash = self.get_auth_token()
         payload = {
-            'url': '{API_ENDPOINT}/v1/payments/payment'.format(**settings.SHOP_PAYPALPLUS),
+            'url': '{API_ENDPOINT}/v1/payments/payment'.format(**settings.SHOP_PAYPAL),
             'method': 'POST',
             'headers': {
                 'Content-Type': 'application/json',
@@ -95,27 +86,31 @@ class PayPalPlusPayment(PaymentProvider):
                 console.error(r);
             }""".replace('  ', '').replace('\n', '')
         js_expression = '$http({0}).success({1}).error({2})'.format(config, success_handler, error_handler)
-        print js_expression
         return js_expression
 
     @classmethod
     def return_view(cls, request):
         try:
-            params = {'paymentId': request.GET['paymentId'], 'PayerID': request.GET['PayerID']}
+            payment_id = request.GET['paymentId']
+            params = {'payer_id': request.GET['PayerID']}
         except KeyError as err:
             warnings.warn("Request for PayPal return_url is invalid: ", err.message)
             return HttpResponseBadRequest("Invalid Payment Request")
-        cart = CartModel.objects.get_from_request(request)
-        order = OrderModel.objects.create_from_cart(cart, request)
-        # paymentId=PAY-6RV70583SB702805EKEYSZ6Y&token=EC-60U79048BN7719609&PayerID=7E7MGXCWTTKK2
-        cls.get_auth_token()
-        payment = paypalrestsdk.Payment.find(params['paymentId'])
-        response = payment.execute(params['PayerID'])
-        if response['state'] == 'approved':
-            order.add_charge(response)
-        order.save()
-        thank_you_url = OrderModel.objects.get_latest_url()
-        return HttpResponseRedirect(thank_you_url)
+        try:
+            cls.get_auth_token()
+            payment = paypalrestsdk.Payment.find(payment_id)
+            approved = payment.execute(params)
+        except Exception as err:
+            warnings.warn("An internal error occurred on the upstream server: ", err.message)
+            return cls.cancel_view(request)
+        if approved:
+            cart = CartModel.objects.get_from_request(request)
+            order = OrderModel.objects.create_from_cart(cart, request)
+            order.add_paypal_payment(payment.to_dict())
+            order.save()
+            thank_you_url = OrderModel.objects.get_latest_url()
+            return HttpResponseRedirect(thank_you_url)
+        return cls.cancel_view(request)
 
     @classmethod
     def cancel_view(cls, request):
@@ -138,8 +133,9 @@ class OrderWorkflowMixin(object):
         super(OrderWorkflowMixin, self).__init__(*args, **kwargs)
 
     @transition(field='status', source=['created'], target='paid_with_paypal')
-    def add_charge(self, response):
-        payment = OrderPayment(order=self, transaction_id=response['id'], payment_method=PayPalPlusPayment.namespace)
-        assert payment.amount.get_currency() == response['transactions']['amount']['currency'].upper(), "Currency mismatch"
-        payment.amount = response['transactions']['amount']['total']
+    def add_paypal_payment(self, charge):
+        payment = OrderPayment(order=self, transaction_id=charge['id'], payment_method=PayPalPayment.namespace)
+        transaction = charge['transactions'][0]
+        assert payment.amount.get_currency() == transaction['amount']['currency'].upper(), "Currency mismatch"
+        payment.amount = payment.amount.__class__(transaction['amount']['total'])
         payment.save()
