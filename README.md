@@ -1,6 +1,6 @@
-# Stripe Payment Provider Integration for django-shop
+# REST based PayPal Payment Provider Integration for django-shop
 
-This integrates Stripe for django-shop version 0.3 and above.
+This integration only works for django-shop version 0.3 and above.
 
 
 ## Installation
@@ -21,3 +21,5 @@ SHOP_PAYPAL = {
 In ``settings.py`` add ``'shop_paypal.payment.PaymentModifier'`` to ``SHOP_CART_MODIFIERS``.
 
 In ``settings.py`` add ``'shop_paypal.payment.OrderWorkflowMixin'`` to ``SHOP_ORDER_WORKFLOWS``.
+
+This will add a list item for PayPal to the select fields, when chosing the payment method.
