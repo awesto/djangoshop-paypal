@@ -17,6 +17,9 @@ class PaymentModifier(PaymentModifierBase):
     def get_choice(self):
         return (self.identifier, _("PayPal"))
 
+    def is_disabled(self, cart):
+        return cart.total == 0
+
     def add_extra_cart_row(self, cart, request):
         from decimal import Decimal
         from shop.rest.serializers import ExtraCartRow
