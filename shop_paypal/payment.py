@@ -139,3 +139,8 @@ class OrderWorkflowMixin(object):
         assert payment.amount.get_currency() == transaction['amount']['currency'].upper(), "Currency mismatch"
         payment.amount = payment.amount.__class__(transaction['amount']['total'])
         payment.save()
+
+    @transition(field='status', source='paid_with_paypal',
+        custom=dict(admin=True, button_name=_("Acknowledge Payment")))
+    def acknowledge_paypal_payment(self):
+        self.acknowledge_payment()
