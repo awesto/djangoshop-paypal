@@ -15,7 +15,7 @@ class PaymentModifier(PaymentModifierBase):
     commision_percentage = None
 
     def get_choice(self):
-        return (self.identifier, _("PayPal"))
+        return (self.identifier, "PayPal")
 
     def is_disabled(self, cart):
         return cart.total == 0
@@ -27,7 +27,7 @@ class PaymentModifier(PaymentModifierBase):
         if not self.is_active(cart) or not self.commision_percentage:
             return
         amount = cart.subtotal * Decimal(self.commision_percentage / 100.0)
-        instance = {'label': _("+ {}% handling fees").format(self.commision_percentage), 'amount': amount}
+        instance = {'label': _("plus {}% handling fees").format(self.commision_percentage), 'amount': amount}
         cart.extra_rows[self.identifier] = ExtraCartRow(instance)
         cart.total += amount
 
