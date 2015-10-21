@@ -140,7 +140,10 @@ class OrderWorkflowMixin(object):
         payment.amount = payment.amount.__class__(transaction['amount']['total'])
         payment.save()
 
-    @transition(field='status', source='paid_with_paypal',
+    def is_fully_paid(self):
+        return super(OrderWorkflowMixin, self).is_fully_paid()
+
+    @transition(field='status', source='paid_with_paypal', conditions=[is_fully_paid],
         custom=dict(admin=True, button_name=_("Acknowledge Payment")))
     def acknowledge_paypal_payment(self):
         self.acknowledge_payment()
