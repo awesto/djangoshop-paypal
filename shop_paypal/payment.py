@@ -68,7 +68,7 @@ class PayPalPayment(PaymentProvider):
                 'transactions': [{
                     'amount': {
                         'total': cart.total.as_decimal(),
-                        'currency': cart.total.get_currency(),
+                        'currency': cart.total.currency,
                     }
                 }]
             }
@@ -136,7 +136,7 @@ class OrderWorkflowMixin(object):
     def add_paypal_payment(self, charge):
         payment = OrderPayment(order=self, transaction_id=charge['id'], payment_method=PayPalPayment.namespace)
         transaction = charge['transactions'][0]
-        assert payment.amount.get_currency() == transaction['amount']['currency'].upper(), "Currency mismatch"
+        assert payment.amount.currency == transaction['amount']['currency'].upper(), "Currency mismatch"
         payment.amount = payment.amount.__class__(transaction['amount']['total'])
         payment.save()
 
