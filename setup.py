@@ -33,6 +33,8 @@ setup(
     platforms=['OS Independent'],
     classifiers=CLASSIFIERS,
     install_requires=[
+        'Django>=1.8',
+        'django-shop>=0.9.0',
         'paypalrestsdk>=1.11.0',
     ],
     packages=find_packages(),
