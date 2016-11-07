@@ -94,14 +94,14 @@ class PayPalPayment(PaymentProvider):
             payment_id = request.GET['paymentId']
             params = {'payer_id': request.GET['PayerID']}
         except KeyError as err:
-            warnings.warn("Request for PayPal return_url is invalid: ", err.message)
+            warnings.warn("Request for PayPal return_url is invalid: {}".format(err.message))
             return HttpResponseBadRequest("Invalid Payment Request")
         try:
             cls.get_auth_token()
             payment = paypalrestsdk.Payment.find(payment_id)
             approved = payment.execute(params)
         except Exception as err:
-            warnings.warn("An internal error occurred on the upstream server: ", err.message)
+            warnings.warn("An internal error occurred on the upstream server: {}".format(err.message))
             return cls.cancel_view(request)
         if approved:
             cart = CartModel.objects.get_from_request(request)
