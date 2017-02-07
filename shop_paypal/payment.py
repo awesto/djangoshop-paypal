@@ -4,7 +4,7 @@ import json
 import paypalrestsdk
 import warnings
 from django.conf import settings
-from django.conf.urls import patterns, url
+from django.conf.urls import url
 from django.core.serializers.json import DjangoJSONEncoder
 from django.core.urlresolvers import resolve, reverse
 from django.core.exceptions import ImproperlyConfigured
@@ -24,11 +24,10 @@ class PayPalPayment(PaymentProvider):
     namespace = 'paypal-payment'
 
     def get_urls(self):
-        urlpatterns = patterns('',
+        return [
             url(r'^return', self.return_view, name='return'),
             url(r'^cancel$', self.cancel_view, name='cancel'),
-        )
-        return urlpatterns
+        ]
 
     @classmethod
     def get_auth_token(cls):
