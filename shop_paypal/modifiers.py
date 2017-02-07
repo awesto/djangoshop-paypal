@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-from datetime import date
+
 from django.utils.translation import ugettext_lazy as _
 from shop.modifiers.base import PaymentModifier as PaymentModifierBase
 from .payment import PayPalPayment
@@ -22,7 +22,7 @@ class PaymentModifier(PaymentModifierBase):
 
     def add_extra_cart_row(self, cart, request):
         from decimal import Decimal
-        from shop.rest.serializers import ExtraCartRow
+        from shop.serializers.cart import ExtraCartRow
 
         if not self.is_active(cart) or not self.commision_percentage:
             return
