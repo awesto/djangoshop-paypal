@@ -1,20 +1,25 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
+
 import json
 import paypalrestsdk
 import warnings
+
 from django.conf import settings
 from django.conf.urls import url
 from django.core.serializers.json import DjangoJSONEncoder
-from django.core.urlresolvers import resolve, reverse
 from django.core.exceptions import ImproperlyConfigured
 from django.http.response import HttpResponseRedirect, HttpResponseBadRequest
+from django.urls import resolve, reverse, NoReverseMatch
 from django.utils.translation import ugettext_lazy as _
+
 from cms.models import Page
+
+from django_fsm import transition
+
 from shop.models.cart import CartModel
 from shop.models.order import BaseOrder, OrderModel, OrderPayment
 from shop.payment.base import PaymentProvider
-from django_fsm import transition
 
 
 class PayPalPayment(PaymentProvider):
@@ -114,10 +119,13 @@ class PayPalPayment(PaymentProvider):
     @classmethod
     def cancel_view(cls, request):
         try:
-            cancel_url = Page.objects.public().get(reverse_id='cancel-payment').get_absolute_url()
+            cancel_url = Page.objects.public().get(reverse_id='shop-cancel-payment').get_absolute_url()
         except Page.DoesNotExist:
-            warnings.warn("Please add a page with an id `cancel-payment` to the CMS.")
-            cancel_url = '/page__cancel-payment__not-found-in-cms'
+            try:
+                cancel_url = reverse('shop-cancel-payment')
+            except NoReverseMatch:
+                warnings.warn("Please add a page with an id `cancel-payment` to the CMS.")
+                cancel_url = '/page__shop-cancel-payment__not-found-in-cms'
         return HttpResponseRedirect(cancel_url)
 
 
