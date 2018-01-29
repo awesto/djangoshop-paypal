@@ -4,22 +4,24 @@ from __future__ import unicode_literals
 import json
 import paypalrestsdk
 import warnings
+from decimal import Decimal
+from distutils.version import LooseVersion
 
 from django.conf import settings
 from django.conf.urls import url
 from django.core.serializers.json import DjangoJSONEncoder
+from django.core.urlresolvers import resolve, reverse
 from django.core.exceptions import ImproperlyConfigured
 from django.http.response import HttpResponseRedirect, HttpResponseBadRequest
-from django.urls import resolve, reverse, NoReverseMatch
 from django.utils.translation import ugettext_lazy as _
-
 from cms.models import Page
 
-from django_fsm import transition
-
+from shop import __version__ as SHOP_VERSION
 from shop.models.cart import CartModel
 from shop.models.order import BaseOrder, OrderModel, OrderPayment
+from shop.money import MoneyMaker
 from shop.payment.base import PaymentProvider
+from django_fsm import transition
 
 
 class PayPalPayment(PaymentProvider):
@@ -79,17 +81,17 @@ class PayPalPayment(PaymentProvider):
         }
         config = json.dumps(payload, cls=DjangoJSONEncoder)
         success_handler = """
-            function(r){
+            function successCallback(r) {
                 console.log(r);
-                $window.location.href=r.links.filter(function(e){
+                $window.location.href=r.data.links.filter(function(e){
                     return e.rel==='approval_url';
                 })[0].href;
             }""".replace('  ', '').replace('\n', '')
         error_handler = """
-            function(r){
+            function errorCallback(r) {
                 console.error(r);
             }""".replace('  ', '').replace('\n', '')
-        js_expression = '$http({0}).success({1}).error({2})'.format(config, success_handler, error_handler)
+        js_expression = '$http({0}).then({1},{2})'.format(config, success_handler, error_handler)
         return js_expression
 
     @classmethod
@@ -107,11 +109,20 @@ class PayPalPayment(PaymentProvider):
         except Exception as err:
             warnings.warn("An internal error occurred on the upstream server: {}".format(err.message))
             return cls.cancel_view(request)
+
         if approved:
-            cart = CartModel.objects.get_from_request(request)
-            order = OrderModel.objects.create_from_cart(cart, request)
-            order.add_paypal_payment(payment.to_dict())
-            order.save()
+            if LooseVersion(SHOP_VERSION) < LooseVersion('0.11'):
+                cart = CartModel.objects.get_from_request(request)
+                order = OrderModel.objects.create_from_cart(cart, request)
+                order.add_paypal_payment(payment.to_dict())
+                order.save()
+            else:
+                cart = CartModel.objects.get_from_request(request)
+                order = OrderModel.objects.create_from_cart(cart, request)
+                order.populate_from_cart(cart, request)
+                order.add_paypal_payment(payment.to_dict())
+                order.save()
+
             thank_you_url = OrderModel.objects.get_latest_url()
             return HttpResponseRedirect(thank_you_url)
         return cls.cancel_view(request)
@@ -141,11 +152,11 @@ class OrderWorkflowMixin(object):
 
     @transition(field='status', source=['created'], target='paid_with_paypal')
     def add_paypal_payment(self, charge):
-        payment = OrderPayment(order=self, transaction_id=charge['id'], payment_method=PayPalPayment.namespace)
         transaction = charge['transactions'][0]
-        assert payment.amount.currency == transaction['amount']['currency'].upper(), "Currency mismatch"
-        payment.amount = payment.amount.__class__(transaction['amount']['total'])
-        payment.save()
+        assert self.currency == transaction['amount']['currency'].upper(), "Currency mismatch"
+        Money = MoneyMaker(self.currency)
+        amount = Money(Decimal(transaction['amount']['total']))
+        OrderPayment.objects.create(order=self, amount=amount, transaction_id=charge['id'], payment_method=PayPalPayment.namespace)
 
     def is_fully_paid(self):
         return super(OrderWorkflowMixin, self).is_fully_paid()
