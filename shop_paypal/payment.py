@@ -5,7 +5,6 @@ import json
 import paypalrestsdk
 import warnings
 from decimal import Decimal
-from distutils.version import LooseVersion
 
 from django.conf import settings
 from django.conf.urls import url
@@ -13,14 +12,14 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.core.urlresolvers import resolve, reverse
 from django.core.exceptions import ImproperlyConfigured
 from django.http.response import HttpResponseRedirect, HttpResponseBadRequest
+from django.urls import NoReverseMatch
 from django.utils.translation import ugettext_lazy as _
 from cms.models import Page
 
-from shop import __version__ as SHOP_VERSION
 from shop.models.cart import CartModel
 from shop.models.order import BaseOrder, OrderModel, OrderPayment
 from shop.money import MoneyMaker
-from shop.payment.base import PaymentProvider
+from shop.payment.providers import PaymentProvider
 from django_fsm import transition
 
 
@@ -37,13 +36,13 @@ class PayPalPayment(PaymentProvider):
         ]
 
     @classmethod
-    def get_auth_token(cls):
-        api = paypalrestsdk.set_config(
-            mode=settings.SHOP_PAYPAL['MODE'],
-            client_id=settings.SHOP_PAYPAL['CLIENT_ID'],
-            client_secret=settings.SHOP_PAYPAL['CLIENT_SECRET'])
-        auth_token_hash = api.get_token_hash()
-        return auth_token_hash
+    def get_paypal_api(cls):
+        api = paypalrestsdk.Api({
+            'mode': settings.SHOP_PAYPAL['MODE'],
+            'client_id': settings.SHOP_PAYPAL['CLIENT_ID'],
+            'client_secret': settings.SHOP_PAYPAL['CLIENT_SECRET'],
+        })
+        return api
 
     def get_payment_request(self, cart, request):
         """
@@ -52,9 +51,16 @@ class PayPalPayment(PaymentProvider):
         shop_ns = resolve(request.path).namespace
         return_url = reverse('{}:{}:return'.format(shop_ns, self.namespace))
         cancel_url = reverse('{}:{}:cancel'.format(shop_ns, self.namespace))
-        cart = CartModel.objects.get_from_request(request)
-        cart.update(request)  # to calculate the total
-        auth_token_hash = self.get_auth_token()
+        paypal_api = self.get_paypal_api()
+        auth_token_hash = paypal_api.get_token_hash()
+        items = []
+        for cart_item in cart.items.all():
+            items.append({
+                'name': cart_item.product.product_name,
+                'quantity': str(int(cart_item.quantity)),
+                'price': str(cart_item.product.unit_price.as_decimal()),
+                'currency': cart_item.product.unit_price.currency,
+            })
         payload = {
             'url': '{API_ENDPOINT}/v1/payments/payment'.format(**settings.SHOP_PAYPAL),
             'method': 'POST',
@@ -72,10 +78,14 @@ class PayPalPayment(PaymentProvider):
                     'payment_method': 'paypal',
                 },
                 'transactions': [{
+                    'item_list': {
+                        'items': items,
+                    },
                     'amount': {
-                        'total': cart.total.as_decimal(),
+                        'total': str(cart.total.as_decimal()),
                         'currency': cart.total.currency,
-                    }
+                    },
+                    'description': settings.SHOP_PAYPAL['PURCHASE_DESCRIPTION']
                 }]
             }
         }
@@ -103,28 +113,20 @@ class PayPalPayment(PaymentProvider):
             warnings.warn("Request for PayPal return_url is invalid: {}".format(err.message))
             return HttpResponseBadRequest("Invalid Payment Request")
         try:
-            cls.get_auth_token()
-            payment = paypalrestsdk.Payment.find(payment_id)
+            paypal_api = cls.get_paypal_api()
+            payment = paypalrestsdk.Payment.find(payment_id, api=paypal_api)
             approved = payment.execute(params)
         except Exception as err:
-            warnings.warn("An internal error occurred on the upstream server: {}".format(err.message))
+            warnings.warn("An internal error occurred on the upstream server: {}".format(err))
             return cls.cancel_view(request)
 
         if approved:
-            if LooseVersion(SHOP_VERSION) < LooseVersion('0.11'):
-                cart = CartModel.objects.get_from_request(request)
-                order = OrderModel.objects.create_from_cart(cart, request)
-                order.add_paypal_payment(payment.to_dict())
-                order.save()
-            else:
-                cart = CartModel.objects.get_from_request(request)
-                order = OrderModel.objects.create_from_cart(cart, request)
-                order.populate_from_cart(cart, request)
-                order.add_paypal_payment(payment.to_dict())
-                order.save()
-
-            thank_you_url = OrderModel.objects.get_latest_url()
-            return HttpResponseRedirect(thank_you_url)
+            cart = CartModel.objects.get_from_request(request)
+            order = OrderModel.objects.create_from_cart(cart, request)
+            order.populate_from_cart(cart, request)
+            order.add_paypal_payment(payment.to_dict())
+            order.save()
+            return HttpResponseRedirect(order.get_absolute_url())
         return cls.cancel_view(request)
 
     @classmethod
