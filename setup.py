@@ -31,7 +31,7 @@ setup(
     platforms=['OS Independent'],
     classifiers=CLASSIFIERS,
     install_requires=[
-        'paypalrestsdk>=1.12.0',
+        'paypalrestsdk>=1.13.0',
         'requests>=2.14.1',
     ],
     packages=find_packages(),
