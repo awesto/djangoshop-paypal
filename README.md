@@ -51,3 +51,10 @@ Successful payments are redirected onto the just created order detail page.
 
 If a payment was rejected by PayPal, **djangoshop-paypal** redirects onto the CMS page with the ID
 ``shop-cancel-payment``, so make sure that such a page exists.
+
+
+## Changes
+
+### 1.0
+
+* Adopted ver django-SHOP version 1.0
