@@ -2,7 +2,7 @@
 from __future__ import unicode_literals
 
 from django.utils.translation import ugettext_lazy as _
-from shop.modifiers.base import PaymentModifier as PaymentModifierBase
+from shop.payment.modifiers import PaymentModifier as PaymentModifierBase
 from .payment import PayPalPayment
 
 
@@ -10,7 +10,6 @@ class PaymentModifier(PaymentModifierBase):
     """
     Cart modifier which handles payment through PayPal.
     """
-    identifier = PayPalPayment.namespace
     payment_provider = PayPalPayment()
     commision_percentage = None
 

@@ -1,19 +1,13 @@
 # REST based PayPal Payment Provider Integration for django-shop
 
-This integrates the PayPal for django-shop version 0.9 and above.
+This integrates PayPal for django-shop version 1.0 and above.
 
 ## Installation
 
-for django-shop version 0.10.x:
+for django-shop version 1.0.x:
 
 ```
-pip install djangoshop-paypal==0.1.4
-```
-
-for django-shop version 0.10.x:
-
-```
-pip install djangoshop-paypal==0.2.0
+pip install djangoshop-paypal<1.1
 ```
 
 ## Configuration
@@ -29,8 +23,9 @@ For a testing account add them as:
 SHOP_PAYPAL = {
     'API_ENDPOINT': 'https://api.sandbox.paypal.com',
     'MODE': 'sandbox',
-    'CLIENT_ID': '<client-id-as-delivered-by-PayPal>',
-    'CLIENT_SECRET': '<client-secret-as-delivered-by-PayPal>',
+    'CLIENT_ID': '<client-id-as-provided-by-PayPal>',
+    'CLIENT_SECRET': '<client-secret-as-provided-by-PayPal>',
+    'PURCHASE_DESCRIPTION': "Thanks for purchasing at My Shop",
 }
 ```
 
@@ -40,8 +35,9 @@ and for production:
 SHOP_PAYPAL = {
     'API_ENDPOINT': 'https://api.paypal.com',
     'MODE': 'live',
-    'CLIENT_ID': '<client-id-as-delivered-by-PayPal>',
-    'CLIENT_SECRET': '<client-secret-as-delivered-by-PayPal>',
+    'CLIENT_ID': '<client-id-as-provided-by-PayPal>',
+    'CLIENT_SECRET': '<client-secret-as-provided-by-PayPal>',
+    'PURCHASE_DESCRIPTION': "Thanks for purchasing at My Shop",
 }
 ```
 
@@ -51,9 +47,7 @@ Add ``'shop_paypal.payment.OrderWorkflowMixin'`` to the list of ``SHOP_ORDER_WOR
 
 When rendering the payment method form, "PayPal" shall appear in the list of possible payments.
 
-Successful payments are redirected onto the CMS page with the ID ``shop-order-last``. If no such
-CMS page exists, the URL which resolves to ``shop-order-last`` is returned.
+Successful payments are redirected onto the just created order detail page.
 
 If a payment was rejected by PayPal, **djangoshop-paypal** redirects onto the CMS page with the ID
-``shop-cancel-payment``.  If no such CMS page exists, the URL which resolves to
-``shop-cancel-payment`` is returned.
+``shop-cancel-payment``, so make sure that such a page exists.
