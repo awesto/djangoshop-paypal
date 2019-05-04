@@ -1,6 +1,6 @@
 # REST based PayPal Payment Provider Integration for django-shop
 
-This integrates the PayPal for django-shop version 0.9 and above.
+This integrates PayPal for django-shop version 1.0 and above.
 
 ## Installation
 
@@ -47,7 +47,7 @@ Add ``'shop_paypal.payment.OrderWorkflowMixin'`` to the list of ``SHOP_ORDER_WOR
 
 When rendering the payment method form, "PayPal" shall appear in the list of possible payments.
 
-Successful payments are redirected onto the CMS page with the ID ``shop-order-last``.
+Successful payments are redirected onto the just created order detail page.
 
 If a payment was rejected by PayPal, **djangoshop-paypal** redirects onto the CMS page with the ID
-``shop-cancel-payment``.
+``shop-cancel-payment``, so make sure that such a page exists.
