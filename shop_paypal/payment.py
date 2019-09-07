@@ -54,11 +54,12 @@ class PayPalPayment(PaymentProvider):
         paypal_api = self.get_paypal_api()
         items = []
         for cart_item in cart.items.all():
+            product = cart_item.product.get_product_variant(cart_item.product_code, **cart_item.extra)
             items.append({
                 'name': cart_item.product.product_name,
                 'quantity': str(int(cart_item.quantity)),
-                'price': str(cart_item.product.unit_price.as_decimal()),
-                'currency': cart_item.product.unit_price.currency,
+                'price': str(product.unit_price.as_decimal()),
+                'currency': product.unit_price.currency,
             })
         payload = {
             'intent': 'sale',
