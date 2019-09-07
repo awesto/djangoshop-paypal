@@ -52,7 +52,6 @@ class PayPalPayment(PaymentProvider):
         return_url = reverse('{}:{}:return'.format(shop_ns, self.namespace))
         cancel_url = reverse('{}:{}:cancel'.format(shop_ns, self.namespace))
         paypal_api = self.get_paypal_api()
-        auth_token_hash = paypal_api.get_token_hash()
         items = []
         for cart_item in cart.items.all():
             items.append({
@@ -62,46 +61,32 @@ class PayPalPayment(PaymentProvider):
                 'currency': cart_item.product.unit_price.currency,
             })
         payload = {
-            'url': '{API_ENDPOINT}/v1/payments/payment'.format(**settings.SHOP_PAYPAL),
-            'method': 'POST',
-            'headers': {
-                'Content-Type': 'application/json',
-                'Authorization': '{token_type} {access_token}'.format(**auth_token_hash),
+            'intent': 'sale',
+            'payer': {
+                'payment_method': 'paypal',
             },
-            'data': {
-                'intent': 'sale',
-                'redirect_urls': {
-                    'return_url': request.build_absolute_uri(return_url),
-                    'cancel_url': request.build_absolute_uri(cancel_url),
+            'redirect_urls': {
+                'return_url': request.build_absolute_uri(return_url),
+                'cancel_url': request.build_absolute_uri(cancel_url),
+            },
+            'transactions': [{
+                'item_list': {
+                    'items': items,
                 },
-                'payer': {
-                    'payment_method': 'paypal',
+                'amount': {
+                    'total': str(cart.total.as_decimal()),
+                    'currency': cart.total.currency,
                 },
-                'transactions': [{
-                    'item_list': {
-                        'items': items,
-                    },
-                    'amount': {
-                        'total': str(cart.total.as_decimal()),
-                        'currency': cart.total.currency,
-                    },
-                    'description': settings.SHOP_PAYPAL['PURCHASE_DESCRIPTION']
-                }]
-            }
+                'description': settings.SHOP_PAYPAL['PURCHASE_DESCRIPTION']
+            }]
         }
-        config = json.dumps(payload, cls=DjangoJSONEncoder)
-        success_handler = """
-            function successCallback(r) {
-                console.log(r);
-                $window.location.href=r.data.links.filter(function(e){
-                    return e.rel==='approval_url';
-                })[0].href;
-            }""".replace('  ', '').replace('\n', '')
-        error_handler = """
-            function errorCallback(r) {
-                console.error(r);
-            }""".replace('  ', '').replace('\n', '')
-        js_expression = '$http({0}).then({1},{2})'.format(config, success_handler, error_handler)
+        # create the payment
+        payment = paypalrestsdk.Payment(payload, api=paypal_api)
+        if payment.create():
+            approval_url = [link for link in payment.links if link.rel == 'approval_url'][0].href
+            js_expression = '$window.location.href="{0}";'.format(approval_url)
+        else:
+            js_expression = '$window.location.href="{0}";'.format(request.build_absolute_uri(cancel_url))
         return js_expression
 
     @classmethod
