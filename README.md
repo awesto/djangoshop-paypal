@@ -55,6 +55,9 @@ If a payment was rejected by PayPal, **djangoshop-paypal** redirects onto the CM
 
 ## Changes
 
+### 1.0.1
+* Fix #6: PayPal's create payment now is invoked by the server.
+
 ### 1.0
 
-* Adopted ver django-SHOP version 1.0
+* Adopted to django-SHOP version 1.0
