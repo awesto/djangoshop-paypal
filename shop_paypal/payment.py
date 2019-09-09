@@ -1,14 +1,12 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-import json
 import paypalrestsdk
 import warnings
 from decimal import Decimal
 
 from django.conf import settings
 from django.conf.urls import url
-from django.core.serializers.json import DjangoJSONEncoder
 from django.core.urlresolvers import resolve, reverse
 from django.core.exceptions import ImproperlyConfigured
 from django.http.response import HttpResponseRedirect, HttpResponseBadRequest
@@ -44,31 +42,30 @@ class PayPalPayment(PaymentProvider):
         })
         return api
 
-    def get_payment_request(self, cart, request):
-        """
-        From the given request, redirect onto the checkout view, hosted by PayPal.
-        """
+    def build_absolute_url(self, request, endpoint):
         shop_ns = resolve(request.path).namespace
-        return_url = reverse('{}:{}:return'.format(shop_ns, self.namespace))
-        cancel_url = reverse('{}:{}:cancel'.format(shop_ns, self.namespace))
-        paypal_api = self.get_paypal_api()
+        url = reverse('{}:{}:{}'.format(shop_ns, self.namespace, endpoint))
+        return request.build_absolute_uri(url)
+
+    def create_payment_payload(self, cart, request):
         items = []
         for cart_item in cart.items.all():
-            product = cart_item.product.get_product_variant(cart_item.product_code, **cart_item.extra)
+            kwargs = dict(cart_item.extra, product_code=cart_item.product_code)
+            product = cart_item.product.get_product_variant(**kwargs)
             items.append({
                 'name': cart_item.product.product_name,
                 'quantity': str(int(cart_item.quantity)),
                 'price': str(product.unit_price.as_decimal()),
                 'currency': product.unit_price.currency,
             })
-        payload = {
+        return {
             'intent': 'sale',
             'payer': {
                 'payment_method': 'paypal',
             },
             'redirect_urls': {
-                'return_url': request.build_absolute_uri(return_url),
-                'cancel_url': request.build_absolute_uri(cancel_url),
+                'return_url': self.build_absolute_url(request, 'return'),
+                'cancel_url': self.build_absolute_url(request, 'cancel'),
             },
             'transactions': [{
                 'item_list': {
@@ -79,16 +76,21 @@ class PayPalPayment(PaymentProvider):
                     'currency': cart.total.currency,
                 },
                 'description': settings.SHOP_PAYPAL['PURCHASE_DESCRIPTION']
-            }]
+            }],
         }
-        # create the payment
+
+    def get_payment_request(self, cart, request):
+        """
+        From the given request, redirect onto the checkout view, hosted by PayPal.
+        """
+        paypal_api = self.get_paypal_api()
+        payload = self.create_payment_payload(cart, request)
         payment = paypalrestsdk.Payment(payload, api=paypal_api)
         if payment.create():
-            approval_url = [link for link in payment.links if link.rel == 'approval_url'][0].href
-            js_expression = '$window.location.href="{0}";'.format(approval_url)
+            redirect_url = [link for link in payment.links if link.rel == 'approval_url'][0].href
         else:
-            js_expression = '$window.location.href="{0}";'.format(request.build_absolute_uri(cancel_url))
-        return js_expression
+            redirect_url = payload['redirect_urls']['cancel_url']
+        return '$window.location.href="{0}";'.format(redirect_url)
 
     @classmethod
     def return_view(cls, request):
