@@ -57,4 +57,4 @@ If a payment was rejected by PayPal, **djangoshop-paypal** redirects onto the CM
 
 ### 1.0
 
-* Adopted ver django-SHOP version 1.0
+* Adopted for django-SHOP version 1.0.
