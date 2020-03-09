@@ -7,9 +7,9 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.conf.urls import url
-from django.urls import NoReverseMatch ,resolve, reverse
 from django.core.exceptions import ImproperlyConfigured
 from django.http.response import HttpResponseRedirect, HttpResponseBadRequest
+from django.urls import NoReverseMatch ,resolve, reverse
 from django.utils.translation import ugettext_lazy as _
 from cms.models import Page
 
