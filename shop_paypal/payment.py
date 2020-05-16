@@ -52,13 +52,22 @@ class PayPalPayment(PaymentProvider):
         for cart_item in cart.items.all():
             kwargs = dict(cart_item.extra, product_code=cart_item.product_code)
             product = cart_item.product.get_product_variant(**kwargs)
+            price = product.get_price(request)
             items.append({
                 'name': cart_item.product.product_name,
                 'quantity': str(int(cart_item.quantity)),
-                'price': str(product.unit_price.as_decimal()),
-                'currency': product.unit_price.currency,
+                'price': str(price.as_decimal()),
+                'currency': price.currency,
             })
-        return {
+        extra_costs = cart.total - cart.subtotal
+        if extra_costs:
+            items.append({
+                'description': force_str(_("Additional charges")),
+                'quantity': '1',
+                'price': str(extra_costs.as_decimal()),
+                'currency': extra_costs.currency,
+            })
+        payload = {
             'intent': 'sale',
             'payer': {
                 'payment_method': 'paypal',
@@ -75,9 +84,10 @@ class PayPalPayment(PaymentProvider):
                     'total': str(cart.total.as_decimal()),
                     'currency': cart.total.currency,
                 },
-                'description': settings.SHOP_PAYPAL['PURCHASE_DESCRIPTION']
+                'description': force_str(settings.SHOP_PAYPAL['PURCHASE_DESCRIPTION'])
             }],
         }
+        return payload
 
     def get_payment_request(self, cart, request):
         """
