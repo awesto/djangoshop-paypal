@@ -4,10 +4,10 @@ This integrates PayPal for django-shop version 1.0 and above.
 
 ## Installation
 
-for django-shop version 1.0.x:
+for django-shop version 1.2.x:
 
 ```
-pip install djangoshop-paypal<1.1
+pip install djangoshop-paypal<1.3
 ```
 
 ## Configuration
@@ -54,6 +54,11 @@ If a payment was rejected by PayPal, **djangoshop-paypal** redirects onto the CM
 
 
 ## Changes
+
+### 1.2
+* Fix new PayPal requirement: Add additional costs not reflected in list of ordered items.
+* Drop support for Django<2.1.
+* Drop support for Python-2.7.
 
 ### 1.0.1
 * Fix #6: PayPal's create payment now is invoked by the server.
