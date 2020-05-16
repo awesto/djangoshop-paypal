@@ -53,16 +53,3 @@ If a payment was rejected by PayPal, **djangoshop-paypal** redirects onto the CM
 ``shop-cancel-payment``, so make sure that such a page exists.
 
 
-## Changes
-
-### 1.2
-* Fix new PayPal requirement: Add additional costs not reflected in list of ordered items.
-* Drop support for Django<2.1.
-* Drop support for Python-2.7.
-
-### 1.0.1
-* Fix #6: PayPal's create payment now is invoked by the server.
-
-### 1.0
-
-* Adopted to django-SHOP version 1.0
