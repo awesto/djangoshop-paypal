@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
 from django.utils.translation import ugettext_lazy as _
 from shop.payment.modifiers import PaymentModifier as PaymentModifierBase
 from .payment import PayPalPayment
@@ -31,5 +28,5 @@ class PaymentModifier(PaymentModifierBase):
         cart.total += amount
 
     def update_render_context(self, context):
-        super(PaymentModifier, self).update_render_context(context)
+        super().update_render_context(context)
         context['payment_modifiers']['paypal_payment'] = True

@@ -1,17 +1,14 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
 import paypalrestsdk
 import warnings
 from decimal import Decimal
 
 from django.conf import settings
 from django.conf.urls import url
-from django.core.urlresolvers import resolve, reverse
 from django.core.exceptions import ImproperlyConfigured
 from django.http.response import HttpResponseRedirect, HttpResponseBadRequest
-from django.urls import NoReverseMatch
+from django.urls import NoReverseMatch, resolve, reverse
 from django.utils.translation import ugettext_lazy as _
+from django.utils.encoding import force_str
 from cms.models import Page
 
 from shop.models.cart import CartModel
@@ -148,7 +145,7 @@ class OrderWorkflowMixin(object):
     def __init__(self, *args, **kwargs):
         if not isinstance(self, BaseOrder):
             raise ImproperlyConfigured('OrderWorkflowMixin is not of type BaseOrder')
-        super(OrderWorkflowMixin, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     @transition(field='status', source=['created'], target='paid_with_paypal')
     def add_paypal_payment(self, charge):
@@ -159,7 +156,7 @@ class OrderWorkflowMixin(object):
         OrderPayment.objects.create(order=self, amount=amount, transaction_id=charge['id'], payment_method=PayPalPayment.namespace)
 
     def is_fully_paid(self):
-        return super(OrderWorkflowMixin, self).is_fully_paid()
+        return super().is_fully_paid()
 
     @transition(field='status', source='paid_with_paypal', conditions=[is_fully_paid],
         custom=dict(admin=True, button_name=_("Acknowledge Payment")))
