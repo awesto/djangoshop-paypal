@@ -96,6 +96,7 @@ class PayPalPayment(PaymentProvider):
         if payment.create():
             redirect_url = [link for link in payment.links if link.rel == 'approval_url'][0].href
         else:
+            warnings.warn(str(payment.error))
             redirect_url = payload['redirect_urls']['cancel_url']
         return '$window.location.href="{0}";'.format(redirect_url)
 
